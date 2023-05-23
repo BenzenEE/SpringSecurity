@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,19 +55,20 @@ public class UserController {
 	
 	@PostMapping("/api/login")
 	public String login(@RequestBody LoginDto user) {
-		
-	    if(!userRepository.existsByEmail(user.getEmail())) {
-	    	System.out.println(user.getEmail());
+		UserEntity u = userRepository.findByEmail(user.getEmail()).orElse(null);
+		if(!userRepository.existsByEmail(user.getEmail())) {
+	    	//System.out.println(user.getEmail());
 	    	return "Incorrect Email or Password...";
 	    }
-		
+		if(!new BCryptPasswordEncoder().matches(user.getPassword(), u.getPassword())) {
+	    	return "Incorrect Email or Password...";
+	    }
+
 		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(),user.getPassword()));
 		//System.out.print(user.getEmail()+" "+user.getPassword());
 		SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = jwtGenerator.generateToken(authentication); 
+        String token = jwtGenerator.generateToken(authentication);
         
-        UserEntity u = userRepository.findByEmail(user.getEmail()).get();
-
         Token t = new Token();
         t.setUser(u);
         t.setToken(token);
@@ -76,6 +78,8 @@ public class UserController {
         revokeAllUserTokens(u);
         tokenRepository.save(t);
         return token;
+		
+		
 	}
 	
 	@GetMapping("/api/home")
